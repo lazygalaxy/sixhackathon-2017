@@ -1,0 +1,32 @@
+{
+  "_namespace": "common",
+  "page": {
+    "AddDocument": "Dokument Hinzufügen",
+    "Documents": "Dokumente",
+    "EditDocument": "Document Bearbeiten",
+    "Index": "Index",
+    "LogIn": "Einloggen",
+    "LogOut": "Ausloggen",
+    "RecoverPassword": "Passwort Wiederherstellen",
+    "Settings": "Einstellungen",
+    "SignUp": "Anmelden"
+  },
+  "general": {
+    "Body": "Body",
+    "Delete": "Löschen",
+    "Edit": "Bearbeiten",
+    "Email": "Email",
+    "FirstName": "Vorname",
+    "Language": "Sprache",
+    "LastName": "Familienname",
+    "Password": "Passwort",
+    "Title": "Titel",
+    "UserName": "Benutzername"
+  },
+  "sentence": {
+    "AlreadyAccount": "Hast du schon ein Konto?",
+    "EnterEmail": "Geben Sie Ihre Email unten ein, um einen Link zu erhalten, um Ihr Passwort zurückzusetzen.",
+    "ForgotPassword": "Passwort vergessen?",
+    "LanguageChange": "Sprache geändert auf "
+  }
+}

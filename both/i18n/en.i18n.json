@@ -1,0 +1,33 @@
+{
+  "_namespace": "common",
+  "page": {
+    "AddDocument": "Add Document",
+    "Documents": "Documents",
+    "EditDocument": "Edit Document",
+    "Index": "Index",
+    "LogIn": "Login",
+    "LogOut": "Logout",
+    "RecoverPassword": "Recover Password",
+    "Settings": "Settings",
+    "SignUp": "Sign Up"
+  },
+  "general": {
+    "Body": "Body",
+    "Delete": "Delete",
+    "Document": "Document",
+    "Edit": "Edit",
+    "Email": "Email",
+    "FirstName": "First Name",
+    "Language": "Language",
+    "LastName": "Last Name",
+    "Password": "Password",
+    "Title": "Title",
+    "UserName": "Username"
+  },
+  "sentence": {
+    "AlreadyAccount": "Already have an account?",
+    "EnterEmail": "Enter your email address below to receive a link to reset your password.",
+    "ForgotPassword": "Forgot Password?",
+    "LanguageChange": "Language changed to "
+  }
+}
