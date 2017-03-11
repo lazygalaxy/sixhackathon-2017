@@ -5,6 +5,7 @@ import crypto from 'crypto';
 import {Picker} from 'meteor/meteorhacks:picker';
 import chatbot from '../../api/chatbot/chatbot.js';
 import {upsertDocument} from '../../api/documents/methods.js';
+import Settings from '../../api/settings/settings.js';
 
 // App Secret can be retrieved from the App Dashboard
 const APP_SECRET = Meteor.settings.MESSENGER_APP_SECRET;
@@ -307,25 +308,42 @@ function receivedMessage(event) {
         break;
 
       default:
-        let reply = chatbot(messageText);
         // // Create a document if you plan to run multiple detections.
-        var document = language.document(reply);
+        var document = language.document(messageText.toLowerCase());
         // Parse the syntax of the document.
-        document.annotate(function(err, annotations) {
-          if (!err) {
-            console.info(annotations);
-            // Translate a string of text.
-            translate.translate(reply, 'de', function(err, translation) {
-              if (!err) {
-                sendTextMessage(senderID, translation);
-              } else {
-                console.error(err);
-                sendTextMessage(senderID, "sorry, I wasn't listeneing... could you please repeat that?! " + err);
+        document.annotate().then(function(data) {
+          try {
+            var annotations = data[0];
+            console.info(JSON.stringify(annotations));
+            let command = chatbot(annotations);
+            if (typeof command === 'string') {
+              sendTextMessage(senderID, command);
+            } else {
+              if (command.action == 'create' && command.what == 'invoice') {
+                //find who and create invoice
+                let settings = Settings.find({"nickname": command.who}).fetch();
+                if (settings.length > 0) {
+                  console.info(JSON.stringify(settings[0]));
+                  sendReceiptMessage(senderID, settings[0]);
+                } else {
+                  sendTextMessage(senderID, "i don't know who " + command.who + " is!");
+                }
+                sendTextMessage(senderID, JSON.stringify(command));
               }
-            });
-          } else {
+            }
+
+            // Translate a string of text.
+            // translate.translate(reply, 'de', function(err, translation) {
+            //   if (!err) {
+            //     sendTextMessage(senderID, translation);
+            //   } else {
+            //     console.error(err);
+            //     sendTextMessage(senderID, "sorry, I wasn't listeneing... could you please repeat that?! " + err);
+            //   }
+            // });
+          } catch (err) {
             console.error(err);
-            sendTextMessage(senderID, "sorry, I wasn't listeneing... could you please repeat that?! " + err);
+            sendTextMessage(senderID, "something went wrong with " + err.toString());
           }
         });
     }
@@ -745,7 +763,8 @@ function sendGenericMessage(recipientId) {
  * Send a receipt message using the Send API.
  *
  */
-function sendReceiptMessage(recipientId) {
+function sendReceiptMessage(recipientId, details) {
+  console.info('address: ' + details.address);
   // Generate a random receipt ID as the API requires a unique ID
   var receiptId = "order" + Math.floor(Math.random() * 1000);
 
@@ -760,33 +779,33 @@ function sendReceiptMessage(recipientId) {
           template_type: "receipt",
           recipient_name: "Peter Chang",
           order_number: receiptId,
-          currency: "USD",
+          currency: "CHF",
           payment_method: "Visa 1234",
           timestamp: "1428444852",
           elements: [
             {
-              title: "Oculus Rift",
-              subtitle: "Includes: headset, sensor, remote",
-              quantity: 1,
-              price: 599.00,
-              currency: "USD",
-              image_url: SERVER_URL + "/assets/riftsq.png"
+              title: "Winter Tires",
+              //subtitle: "Bridgestones",
+              quantity: 4,
+              price: 499.00,
+              currency: "CHF",
+              image_url: SERVER_URL + "/wheels.png"
             }, {
-              title: "Samsung Gear VR",
-              subtitle: "Frost White",
+              title: "Oil Change",
+              //subtitle: "The best in town",
               quantity: 1,
-              price: 99.99,
-              currency: "USD",
-              image_url: SERVER_URL + "/assets/gearvrsq.png"
+              price: 10.99,
+              currency: "CHF",
+              image_url: SERVER_URL + "/oil.png"
             }
           ],
           address: {
-            street_1: "1 Hacker Way",
-            street_2: "",
-            city: "Menlo Park",
-            postal_code: "94025",
-            state: "CA",
-            country: "US"
+            street_1: details.street,
+            //street_2: "",
+            city: details.city,
+            postal_code: details.postal_code,
+            state: details.country,
+            country: "."
           },
           summary: {
             subtotal: 698.99,

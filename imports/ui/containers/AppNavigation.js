@@ -24,7 +24,7 @@ const composer = ({
     const subscription = Meteor.subscribe('settings.view', Meteor.userId());
 
     if (subscription.ready()) {
-      const userSetting = Settings.findOne();
+      const userSetting = Settings.find(Meteor.userId());
       onData(null, {
         meteorUser: Meteor.user(),
         userSetting: userSetting || getDefaultUserSettings()
