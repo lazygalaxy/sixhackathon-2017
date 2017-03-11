@@ -498,12 +498,12 @@ function receivedMessage(event) {
           }
 
         });
-      } else if (messageAttachments[i].type == 'audio') {
+      } else if (messageAttachments[i].type == 'audio' || messageAttachments[i].type == 'file') {
         console.info("processing audio " + messageAttachments[i].payload.url);
 
         //request(messageAttachments[i].payload.url).pipe(fs.createWriteStream('./temp.mp4'))
-        speech.recognize(Assets.absoluteFilePath('audio.mp4'), {
-          encoding: 'LINEAR16',
+        speech.recognize(messageAttachments[i].payload.url, {
+          encoding: 'FLAC',
           sampleRate: 16000
         }, function(err, transcript) {
           try {
@@ -527,28 +527,28 @@ function receivedMessage(event) {
           }
         });
 
-        speech.recognize('audio.mp4', {
-          encoding: 'LINEAR16',
-          sampleRate: 16000
-        }).then(function(data) {
-          try {
-            console.info("processing data " + JSON.stringify(data));
-            var transcript = data[0];
-            sendTextMessage(senderID, "you said:  " + JSON.stringify(transcript));
-
-            // upsert.body = JSON.stringify(transcript);
-            // upsertDocument.call(upsert, function(err, result) {
-            //   if (err) {
-            //     throw new Error(err);
-            //   } else {
-            //     sendTextMessage(senderID, "document added");
-            //   }
-            // });
-          } catch (err) {
-            console.error(err);
-            sendTextMessage(senderID, "something went wrong with " + err.toString());
-          }
-        });
+        // speech.recognize('audio.mp4', {
+        //   encoding: 'LINEAR16',
+        //   sampleRate: 16000
+        // }).then(function(data) {
+        //   try {
+        //     console.info("processing data " + JSON.stringify(data));
+        //     var transcript = data[0];
+        //     sendTextMessage(senderID, "you said:  " + JSON.stringify(transcript));
+        //
+        //     // upsert.body = JSON.stringify(transcript);
+        //     // upsertDocument.call(upsert, function(err, result) {
+        //     //   if (err) {
+        //     //     throw new Error(err);
+        //     //   } else {
+        //     //     sendTextMessage(senderID, "document added");
+        //     //   }
+        //     // });
+        //   } catch (err) {
+        //     console.error(err);
+        //     sendTextMessage(senderID, "something went wrong with " + err.toString());
+        //   }
+        // });
       } else {
         upsertDocument.call(upsert, function(error, result) {
           if (error) {
