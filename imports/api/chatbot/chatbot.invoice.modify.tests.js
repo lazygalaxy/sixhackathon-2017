@@ -179,4 +179,42 @@ describe('Chatbot', function() {
       num: 5
     });
   });
+
+  it('send invoice', function() {
+    assert.deepEqual(chatbot({
+      "language": "en",
+      "sentiment": 0.10000000149011612,
+      "entities": {
+        "other": ["invoice"]
+      },
+      "sentences": ["send invoice"],
+      "tokens": [
+        {
+          "tag": "VERB",
+          "text": "send",
+          "partOfSpeech": "Verb (all tenses and modes)",
+          "dependencyEdge": {
+            "headTokenIndex": 0,
+            "label": "ROOT",
+            "description": "Root"
+          }
+        }, {
+          "tag": "NOUN",
+          "number": "SINGULAR",
+          "text": "invoice",
+          "partOfSpeech": "Noun (common and proper)",
+          "dependencyEdge": {
+            "headTokenIndex": 0,
+            "label": "DOBJ",
+            "description": "Direct object"
+          }
+        }
+      ]
+    }), {
+      action: 'send',
+      who: null,
+      what: 'invoice',
+      num: null
+    });
+  });
 });

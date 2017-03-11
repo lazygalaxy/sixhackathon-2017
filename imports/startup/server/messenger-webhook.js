@@ -326,7 +326,6 @@ function receivedMessage(event) {
                 let settings = Settings.find({"nickname": command.who}).fetch();
                 if (settings.length > 0) {
                   //console.info(JSON.stringify(settings[0]));
-
                   let details = settings[0];
 
                   let upsert = {
@@ -357,6 +356,12 @@ function receivedMessage(event) {
                   sendTextMessage(senderID, "i don't know who " + command.who + " is!");
                 }
                 //sendTextMessage(senderID, JSON.stringify(command));
+
+              } else if (command.action == 'send' && command.what == 'invoice') {
+                let doc = Documents.findOne();
+                let settings = Settings.find({"_id": doc.customerID}).fetch();
+                let details = settings[0];
+                sendTextMessage(senderID, "invoice sent to " + details.nickname + " via " + details.delivery);
               } else if (command.what != null) {
                 if (command.what == 'tire' || command.what == 'oil') {
                   if (command.action == 'add') {
@@ -435,7 +440,7 @@ function receivedMessage(event) {
                     sendTextMessage(senderID, "how do I " + command.action + "?");
                   }
                 } else {
-                  sendTextMessage(senderID, "i don't know the item " + command.what + " is");
+                  sendTextMessage(senderID, "i don't know what the item " + command.what + " is");
                 }
 
               } else {
@@ -912,11 +917,24 @@ function sendReceiptMessage(recipientId, details, invoice, user) {
   elements.push({
     title: "Mechanic Mike",
     //subtitle: "Bridgestones",
-    quantity: 0,
-    price: 0,
+    quantity: 1,
+    price: 50.00,
     currency: "CHF",
-    image_url: SERVER_URL + "/lazybat.png"
+    image_url: SERVER_URL + "/mike.png"
   });
+  subtotal += 1 * 50.00;
+
+  if (details.delivery == 'post') {
+    elements.push({
+      title: "Invoice Delivery",
+      //subtitle: "Bridgestones",
+      quantity: 1,
+      price: 2.50,
+      currency: "CHF",
+      image_url: SERVER_URL + "/post.png"
+    });
+    subtotal += 1 * 2.50;
+  }
 
   let messageData = {
     recipient: {
@@ -931,7 +949,7 @@ function sendReceiptMessage(recipientId, details, invoice, user) {
           order_number: receiptId,
           currency: "CHF",
           payment_method: "Visa 1234",
-          timestamp: "1428444852",
+          timestamp: Math.ceil(invoice.date / 1000),
           elements: elements,
           address: {
             street_1: details.street,
