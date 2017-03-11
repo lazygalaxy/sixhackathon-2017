@@ -22,6 +22,10 @@ export const upsertDocument = new ValidatedMethod({
       type: String,
       optional: true
     },
+    date: {
+      type: Number,
+      optional: true
+    },
     "items.oil.quantity": {
       type: Number,
       optional: true

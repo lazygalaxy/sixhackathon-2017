@@ -333,6 +333,7 @@ function receivedMessage(event) {
                     title: 'invoice for ' + details.nickname,
                     body: 'contains nothing',
                     customerID: details._id,
+                    date: Date.now(),
                     items: {
                       oil: {
                         quantity: 0
@@ -347,13 +348,15 @@ function receivedMessage(event) {
                     if (err) {
                       throw new Error(err);
                     } else {
-                      sendReceiptMessage(senderID, details, result);
+                      let user = Meteor.users.findOne(details._id);
+                      let doc = Documents.findOne();
+                      sendReceiptMessage(senderID, details, doc, user);
                     }
                   });
                 } else {
                   sendTextMessage(senderID, "i don't know who " + command.who + " is!");
                 }
-                sendTextMessage(senderID, JSON.stringify(command));
+                //sendTextMessage(senderID, JSON.stringify(command));
               } else if (command.what != null) {
                 if (command.what == 'tire' || command.what == 'oil') {
                   if (command.action == 'add') {
@@ -384,7 +387,9 @@ function receivedMessage(event) {
                         } else {
                           let settings = Settings.find({"_id": doc.customerID}).fetch();
                           let details = settings[0];
-                          sendReceiptMessage(senderID, details, doc);
+                          let user = Meteor.users.findOne(doc.customerID);
+
+                          sendReceiptMessage(senderID, details, doc, user);
                         }
                       });
                     } else {
@@ -415,8 +420,11 @@ function receivedMessage(event) {
                           if (err) {
                             throw new Error(err);
                           } else {
-                            //sendReceiptMessage(senderID, details);
-                            sendTextMessage(senderID, "removing " + command.what);
+                            let settings = Settings.find({"_id": doc.customerID}).fetch();
+                            let details = settings[0];
+                            let user = Meteor.users.findOne(doc.customerID);
+
+                            sendReceiptMessage(senderID, details, doc, user);
                           }
                         });
                       }
@@ -866,35 +874,49 @@ function sendGenericMessage(recipientId) {
  * Send a receipt message using the Send API.
  *
  */
-function sendReceiptMessage(recipientId, details, invoice) {
-  console.info('address: ' + details.address);
+function sendReceiptMessage(recipientId, details, invoice, user) {
+  console.info('details: ' + JSON.stringify(details));
+  console.info('invoice: ' + JSON.stringify(invoice));
+  console.info('user: ' + JSON.stringify(user));
   // Generate a random receipt ID as the API requires a unique ID
   let receiptId = details.nickname + '-' + invoice._id;
 
   let elements = [];
   let subtotal = 0;
-  if (invoice.items.oil) {
-    elements.push({
-      title: "Total Classic Oil",
-      //subtitle: "Bridgestones",
-      quantity: invoice.items.oil.quantity,
-      price: 10.00,
-      currency: "CHF",
-      image_url: SERVER_URL + "/oil.png"
-    })
-    subtotal += invoice.items.oil.quantity * 10.0;
+
+  if (invoice.items) {
+    if (invoice.items.oil && invoice.items.oil.quantity > 0) {
+      elements.push({
+        title: "Total Classic Oil",
+        //subtitle: "Bridgestones",
+        quantity: invoice.items.oil.quantity,
+        price: 10.00,
+        currency: "CHF",
+        image_url: SERVER_URL + "/oil.png"
+      })
+      subtotal += invoice.items.oil.quantity * 10.0;
+    }
+    if (invoice.items.tire && invoice.items.tire.quantity > 0) {
+      elements.push({
+        title: "Winter Tire",
+        //subtitle: "Bridgestones",
+        quantity: invoice.items.tire.quantity,
+        price: 510.00,
+        currency: "CHF",
+        image_url: SERVER_URL + "/tire.png"
+      })
+      subtotal += invoice.items.tire.quantity * 510.00;
+    }
   }
-  if (invoice.items.tire) {
-    elements.push({
-      title: "Winter Tire",
-      //subtitle: "Bridgestones",
-      quantity: invoice.items.tire.quantity,
-      price: 510.00,
-      currency: "CHF",
-      image_url: SERVER_URL + "/tire.png"
-    })
-    subtotal += invoice.items.tire.quantity * 510.00;
-  }
+
+  elements.push({
+    title: "Mechanic Mike",
+    //subtitle: "Bridgestones",
+    quantity: 0,
+    price: 0,
+    currency: "CHF",
+    image_url: SERVER_URL + "/lazybat.png"
+  });
 
   let messageData = {
     recipient: {
@@ -905,7 +927,7 @@ function sendReceiptMessage(recipientId, details, invoice) {
         type: "template",
         payload: {
           template_type: "receipt",
-          recipient_name: "Peter Chang",
+          recipient_name: user.profile.name.first + ' ' + user.profile.name.last,
           order_number: receiptId,
           currency: "CHF",
           payment_method: "Visa 1234",

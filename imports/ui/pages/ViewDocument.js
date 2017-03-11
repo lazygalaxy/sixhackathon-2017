@@ -59,10 +59,10 @@ const ViewDocument = ({doc}) => (
           Total Classic Oil
         </Col>}
         {doc.items.oil.quantity > 0 && <Col xs={1}>
-          {doc.items.oil.quantity}
+          Qty.&nbsp;{doc.items.oil.quantity}
         </Col>}
         {doc.items.oil.quantity > 0 && <Col xs={7}>
-          {doc.items.oil.quantity * 10}&nbsp; CHF
+          Fr.&nbsp;10.00
         </Col>}
       </Row>
       <Row>
@@ -72,10 +72,10 @@ const ViewDocument = ({doc}) => (
           Winter Tires
         </Col>}
         {doc.items.tire.quantity > 0 && <Col xs={1}>
-          {doc.items.tire.quantity}
+          Qty.&nbsp;{doc.items.tire.quantity}
         </Col>}
         {doc.items.tire.quantity > 0 && <Col xs={7}>
-          {doc.items.tire.quantity * 510}&nbsp;CHF
+          Fr.&nbsp;510.00
         </Col>}
       </Row>
     </Row>

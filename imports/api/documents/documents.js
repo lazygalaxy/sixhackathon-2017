@@ -32,6 +32,11 @@ Documents.schema = new SimpleSchema({
     type: String,
     label: 'The customer id of the document.'
   },
+  date: {
+    type: Number,
+    label: 'The date of the document.',
+    optional: true
+  },
   "items.oil.quantity": {
     type: Number,
     label: 'The oil items of the document',
