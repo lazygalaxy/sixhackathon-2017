@@ -6,7 +6,7 @@ describe('Chatbot', function() {
     assert.equal(chatbot({}), 'say what?!');
   });
 
-  it('responce to a command', function() {
+  it('create invoice', function() {
     assert.deepEqual(chatbot({
       "language": "en",
       "sentiment": 0.20000000298023224,
@@ -61,11 +61,12 @@ describe('Chatbot', function() {
     }), {
       action: 'create',
       who: 'alexis',
-      what: 'invoice'
+      what: 'invoice',
+      num: null
     });
   });
 
-  it('responce to a command', function() {
+  it('create invoice', function() {
     assert.deepEqual(chatbot({
       "language": "en",
       "sentiment": 0.20000000298023224,
@@ -119,7 +120,8 @@ describe('Chatbot', function() {
     }), {
       action: 'create',
       who: 'john',
-      what: 'invoice'
+      what: 'invoice',
+      num: null
     });
   });
 });

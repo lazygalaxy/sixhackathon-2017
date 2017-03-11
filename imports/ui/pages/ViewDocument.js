@@ -52,14 +52,32 @@ const ViewDocument = ({doc}) => (
           </ButtonToolbar>
         </div>
       </Col>
-      {doc.attachment && <Col xs={2}>
-        <Image src={doc.attachment.url} responsive rounded/>
-      </Col>}
-      <Col xs={10} style={{
-        "white-space": "pre-wrap"
-      }}>
-        {doc.body}
-      </Col>
+      <Row>
+        {doc.items.oil.quantity > 0 && <Col xs={1}>
+          <Image src='../oil.png' responsive rounded/></Col>}
+        {doc.items.oil.quantity > 0 && <Col xs={3}>
+          Total Classic Oil
+        </Col>}
+        {doc.items.oil.quantity > 0 && <Col xs={1}>
+          {doc.items.oil.quantity}
+        </Col>}
+        {doc.items.oil.quantity > 0 && <Col xs={7}>
+          {doc.items.oil.quantity * 10}&nbsp; CHF
+        </Col>}
+      </Row>
+      <Row>
+        {doc.items.tire.quantity > 0 && <Col xs={1}>
+          <Image src='../tire.png' responsive rounded/></Col>}
+        {doc.items.tire.quantity > 0 && <Col xs={3}>
+          Winter Tires
+        </Col>}
+        {doc.items.tire.quantity > 0 && <Col xs={1}>
+          {doc.items.tire.quantity}
+        </Col>}
+        {doc.items.tire.quantity > 0 && <Col xs={7}>
+          {doc.items.tire.quantity * 510}&nbsp;CHF
+        </Col>}
+      </Row>
     </Row>
   </div>
 );

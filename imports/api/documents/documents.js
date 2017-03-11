@@ -25,7 +25,22 @@ Documents.schema = new SimpleSchema({
   },
   body: {
     type: String,
-    label: 'The body of the document.'
+    label: 'The body of the document.',
+    optional: true
+  },
+  customerID: {
+    type: String,
+    label: 'The customer id of the document.'
+  },
+  "items.oil.quantity": {
+    type: Number,
+    label: 'The oil items of the document',
+    optional: true
+  },
+  "items.tire.quantity": {
+    type: Number,
+    label: 'The wheel items of the document',
+    optional: true
   },
   "attachment.type": {
     type: String,

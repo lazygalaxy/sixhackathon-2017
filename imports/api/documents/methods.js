@@ -18,6 +18,18 @@ export const upsertDocument = new ValidatedMethod({
       type: String,
       optional: true
     },
+    customerID: {
+      type: String,
+      optional: true
+    },
+    "items.oil.quantity": {
+      type: Number,
+      optional: true
+    },
+    "items.tire.quantity": {
+      type: Number,
+      optional: true
+    },
     "attachment.type": {
       type: String,
       label: 'The type of the attachment.',

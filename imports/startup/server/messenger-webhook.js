@@ -6,6 +6,7 @@ import {Picker} from 'meteor/meteorhacks:picker';
 import chatbot from '../../api/chatbot/chatbot.js';
 import {upsertDocument} from '../../api/documents/methods.js';
 import Settings from '../../api/settings/settings.js';
+import Documents from '../../api/documents/documents.js';
 
 // App Secret can be retrieved from the App Dashboard
 const APP_SECRET = Meteor.settings.MESSENGER_APP_SECRET;
@@ -319,16 +320,118 @@ function receivedMessage(event) {
             if (typeof command === 'string') {
               sendTextMessage(senderID, command);
             } else {
-              if (command.action == 'create' && command.what == 'invoice') {
-                //find who and create invoice
+              //if we are creating an invoice for someone
+              if (command.action == 'create' && command.what == 'invoice' && command.who != null) {
+                //find the info of the person we are creating the invoice for
                 let settings = Settings.find({"nickname": command.who}).fetch();
                 if (settings.length > 0) {
-                  console.info(JSON.stringify(settings[0]));
-                  sendReceiptMessage(senderID, settings[0]);
+                  //console.info(JSON.stringify(settings[0]));
+
+                  let details = settings[0];
+
+                  let upsert = {
+                    title: 'invoice for ' + details.nickname,
+                    body: 'contains nothing',
+                    customerID: details._id,
+                    items: {
+                      oil: {
+                        quantity: 0
+                      },
+                      tire: {
+                        quantity: 0
+                      }
+                    },
+                    attachment: {}
+                  };
+                  upsertDocument.call(upsert, function(err, result) {
+                    if (err) {
+                      throw new Error(err);
+                    } else {
+                      sendReceiptMessage(senderID, details, result);
+                    }
+                  });
                 } else {
                   sendTextMessage(senderID, "i don't know who " + command.who + " is!");
                 }
                 sendTextMessage(senderID, JSON.stringify(command));
+              } else if (command.what != null) {
+                if (command.what == 'tire' || command.what == 'oil') {
+                  if (command.action == 'add') {
+                    let size = 1;
+                    if (command.num) {
+                      size = command.num;
+                    }
+
+                    let doc = Documents.findOne();
+                    if (doc) {
+                      if (doc.items[command.what]) {
+                        doc.items[command.what].quantity += size;
+                      } else {
+                        doc.items[command.what] = {
+                          quantity: size
+                        }
+                      }
+
+                      upsertDocument.call({
+                        _id: doc._id,
+                        title: doc.title,
+                        body: "adding " + command.what,
+                        customerID: doc.customerID,
+                        items: doc.items
+                      }, function(err, result) {
+                        if (err) {
+                          throw new Error(err);
+                        } else {
+                          let settings = Settings.find({"_id": doc.customerID}).fetch();
+                          let details = settings[0];
+                          sendReceiptMessage(senderID, details, doc);
+                        }
+                      });
+                    } else {
+                      sendTextMessage(senderID, "no idea to which invoice this should be added to!");
+                    }
+                  } else if (command.action == 'remove') {
+                    let size = 1;
+                    if (command.num) {
+                      size = command.num;
+                    }
+
+                    let doc = Documents.findOne();
+                    if (doc) {
+                      if (doc.items[command.what]) {
+                        doc.items[command.what].quantity -= size;
+
+                        if (doc.items[command.what].quantity < 0) {
+                          doc.items[command.what].quantity = 0;
+                        }
+
+                        upsertDocument.call({
+                          _id: doc._id,
+                          title: doc.title,
+                          body: "removing " + command.what,
+                          customerID: doc.customerID,
+                          items: doc.items
+                        }, function(err, result) {
+                          if (err) {
+                            throw new Error(err);
+                          } else {
+                            //sendReceiptMessage(senderID, details);
+                            sendTextMessage(senderID, "removing " + command.what);
+                          }
+                        });
+                      }
+                    } else {
+                      sendTextMessage(senderID, "no idea to which invoice this should be removed from!");
+                    }
+                  } else {
+                    sendTextMessage(senderID, "how do I " + command.action + "?");
+                  }
+                } else {
+                  sendTextMessage(senderID, "i don't know the item " + command.what + " is");
+                }
+
+              } else {
+                sendTextMessage(senderID, "i don't get you!");
               }
             }
 
@@ -763,12 +866,37 @@ function sendGenericMessage(recipientId) {
  * Send a receipt message using the Send API.
  *
  */
-function sendReceiptMessage(recipientId, details) {
+function sendReceiptMessage(recipientId, details, invoice) {
   console.info('address: ' + details.address);
   // Generate a random receipt ID as the API requires a unique ID
-  var receiptId = "order" + Math.floor(Math.random() * 1000);
+  let receiptId = details.nickname + '-' + invoice._id;
 
-  var messageData = {
+  let elements = [];
+  let subtotal = 0;
+  if (invoice.items.oil) {
+    elements.push({
+      title: "Total Classic Oil",
+      //subtitle: "Bridgestones",
+      quantity: invoice.items.oil.quantity,
+      price: 10.00,
+      currency: "CHF",
+      image_url: SERVER_URL + "/oil.png"
+    })
+    subtotal += invoice.items.oil.quantity * 10.0;
+  }
+  if (invoice.items.tire) {
+    elements.push({
+      title: "Winter Tire",
+      //subtitle: "Bridgestones",
+      quantity: invoice.items.tire.quantity,
+      price: 510.00,
+      currency: "CHF",
+      image_url: SERVER_URL + "/tire.png"
+    })
+    subtotal += invoice.items.tire.quantity * 510.00;
+  }
+
+  let messageData = {
     recipient: {
       id: recipientId
     },
@@ -782,23 +910,7 @@ function sendReceiptMessage(recipientId, details) {
           currency: "CHF",
           payment_method: "Visa 1234",
           timestamp: "1428444852",
-          elements: [
-            {
-              title: "Winter Tires",
-              //subtitle: "Bridgestones",
-              quantity: 4,
-              price: 499.00,
-              currency: "CHF",
-              image_url: SERVER_URL + "/wheels.png"
-            }, {
-              title: "Oil Change",
-              //subtitle: "The best in town",
-              quantity: 1,
-              price: 10.99,
-              currency: "CHF",
-              image_url: SERVER_URL + "/oil.png"
-            }
-          ],
+          elements: elements,
           address: {
             street_1: details.street,
             //street_2: "",
@@ -808,20 +920,20 @@ function sendReceiptMessage(recipientId, details) {
             country: "."
           },
           summary: {
-            subtotal: 698.99,
-            shipping_cost: 20.00,
-            total_tax: 57.67,
-            total_cost: 626.66
+            subtotal: subtotal,
+            //shipping_cost: 20.00,
+            //total_tax: 57.67,
+            total_cost: subtotal
           },
-          adjustments: [
-            {
-              name: "New Customer Discount",
-              amount: -50
-            }, {
-              name: "$100 Off Coupon",
-              amount: -100
-            }
-          ]
+          // adjustments: [
+          //   {
+          //     name: "New Customer Discount",
+          //     amount: -50
+          //   }, {
+          //     name: "$100 Off Coupon",
+          //     amount: -100
+          //   }
+          // ]
         }
       }
     }
