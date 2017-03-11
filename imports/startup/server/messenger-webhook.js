@@ -368,7 +368,7 @@ function receivedMessage(event) {
 
               var start = new Date().getTime();
               for (var i = 0; i < 1e7; i++) {
-                if ((new Date().getTime() - start) > 5000) {
+                if ((new Date().getTime() - start) > 4000) {
                   break;
                 }
               }
@@ -404,16 +404,9 @@ function receivedMessage(event) {
                             try {
                               console.info("processing data " + JSON.stringify(data));
                               var transcript = data[0];
-                              sendTextMessage(senderID, "you said:  " + JSON.stringify(transcript));
+                              sendTextMessage(senderID, "you said:  " + transcript);
+                              processMessageText(senderID, transcript);
 
-                              // upsert.body = JSON.stringify(transcript);
-                              // upsertDocument.call(upsert, function(err, result) {
-                              //   if (err) {
-                              //     throw new Error(err);
-                              //   } else {
-                              //     sendTextMessage(senderID, "document added");
-                              //   }
-                              // });
                             } catch (err) {
                               console.error(err);
                               sendTextMessage(senderID, "something went wrong with " + err.toString());
