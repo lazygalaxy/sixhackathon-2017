@@ -347,12 +347,13 @@ function receivedMessage(event) {
           }
 
         });
-      } else if (messageAttachments[i].type == 'audio') {
+      } else if (messageAttachments[i].type == 'audio' || messageAttachments[i].payload.url.includes('.audio')) {
         console.info("processing audio " + messageAttachments[i].payload.url);
         try {
-          if (messageAttachments[i].payload.url.includes('.flac')) {
+          if (messageAttachments[i].payload.url.includes('.audio')) {
             speechRecognize(senderID, messageAttachments[i].payload.url);
           } else {
+            console.info("going to zamzar!!!!");
             const apiKey = '277a9b96ba816b8eaac480b2f1de963f88b7fe54';
             const formData = {
               target_format: 'flac',
@@ -371,7 +372,7 @@ function receivedMessage(event) {
 
                 var start = new Date().getTime();
                 for (var i = 0; i < 1e7; i++) {
-                  if ((new Date().getTime() - start) > 2000) {
+                  if ((new Date().getTime() - start) > 5000) {
                     break;
                   }
                 }
@@ -423,7 +424,7 @@ function receivedMessage(event) {
           }
         });
       }
-      sendTextMessage(senderID, "processing message with " + messageAttachments[i].type);
+      sendTextMessage(senderID, "processing message with audio");
     }
   }
 }
