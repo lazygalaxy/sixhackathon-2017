@@ -430,89 +430,139 @@ function receivedMessage(event) {
 
 const greetings = ['hello', 'hi', 'whazup', 'ciao'];
 function processMessageText(senderID, messageText) {
-  if (greetings.indexOf(messageText.toLowerCase()) > -1) {
+  messageText = messageText.toLowerCase();
+  if (greetings.indexOf(messageText) > -1) {
     sendTextMessage(senderID, 'whazuuuuuuuuup?!');
+  } else if (messageText.startsWith('add') || messageText.startsWith('remove') || messageText.startsWith('please') || messageText.startsWith('could')) {
+    processMessageTextAnnotation(senderID, messageText);
   } else {
+    console.info('translating!');
+    translate.translate(messageText, 'en', function(err, translation) {
+      if (!err) {
+        processMessageTextAnnotation(senderID, translation);
+      } else {
+        console.error(err);
+        sendTextMessage(senderID, "sorry, I wasn't listeneing... could you please repeat that?! " + err);
+      }
+    });
+  }
+}
 
-    // // Create a document if you plan to run multiple detections.
-    var document = language.document(messageText.toLowerCase());
+function processMessageTextAnnotation(senderID, messageText) {
+  // // Create a document if you plan to run multiple detections.
+  var document = language.document(messageText.toLowerCase());
 
-    // Parse the syntax of the document.
-    document.annotate().then(function(data) {
-      try {
-        var annotations = data[0];
-        console.info(JSON.stringify(annotations));
-        let command = chatbot(annotations);
-        if (typeof command === 'string') {
-          sendTextMessage(senderID, command);
-        } else {
-          //if we are creating an invoice for someone
-          if (command.action == 'create' && command.what == 'invoice' && command.who != null) {
-            //find the info of the person we are creating the invoice for
-            let settings = Settings.find({"nickname": command.who}).fetch();
-            if (settings.length > 0) {
-              //console.info(JSON.stringify(settings[0]));
-              let details = settings[0];
-
-              let upsert = {
-                title: 'invoice for ' + details.nickname,
-                body: 'contains nothing',
-                customerID: details._id,
-                date: Date.now(),
-                items: {
-                  oil: {
-                    quantity: 0
-                  },
-                  tire: {
-                    quantity: 0
-                  },
-                  hour: {
-                    quantity: 1
-                  }
-                },
-                attachment: {}
-              };
-              upsertDocument.call(upsert, function(err, result) {
-                if (err) {
-                  throw new Error(err);
-                } else {
-                  let user = Meteor.users.findOne(details._id);
-                  let doc = Documents.findOne();
-                  sendReceiptMessage(senderID, details, doc, user);
-                }
-              });
-            } else {
-              sendTextMessage(senderID, "i don't know who " + command.who + " is!");
-            }
-            //sendTextMessage(senderID, JSON.stringify(command));
-
-          } else if (command.action == 'send' && command.what == 'invoice') {
-            let doc = Documents.findOne();
-            let settings = Settings.find({"_id": doc.customerID}).fetch();
+  // Parse the syntax of the document.
+  document.annotate().then(function(data) {
+    try {
+      var annotations = data[0];
+      console.info(JSON.stringify(annotations));
+      let command = chatbot(annotations);
+      if (typeof command === 'string') {
+        sendTextMessage(senderID, command);
+      } else {
+        //if we are creating an invoice for someone
+        if (command.action == 'create' && command.what == 'invoice' && command.who != null) {
+          //find the info of the person we are creating the invoice for
+          let settings = Settings.find({"nickname": command.who}).fetch();
+          if (settings.length > 0) {
+            //console.info(JSON.stringify(settings[0]));
             let details = settings[0];
-            sendTextMessage(senderID, "invoice sent to " + details.nickname + " via " + details.delivery);
-          } else if (command.what != null) {
-            if (command.what == 'tire' || command.what == 'oil' || command.what == 'hour') {
-              if (command.action == 'add') {
-                let size = 1;
-                if (command.num) {
-                  size = command.num;
+
+            let upsert = {
+              title: 'invoice for ' + details.nickname,
+              body: 'contains nothing',
+              customerID: details._id,
+              date: Date.now(),
+              items: {
+                oil: {
+                  quantity: 0
+                },
+                tire: {
+                  quantity: 0
+                },
+                hour: {
+                  quantity: 1
+                }
+              },
+              attachment: {}
+            };
+            upsertDocument.call(upsert, function(err, result) {
+              if (err) {
+                throw new Error(err);
+              } else {
+                let user = Meteor.users.findOne(details._id);
+                let doc = Documents.findOne();
+                sendReceiptMessage(senderID, details, doc, user);
+              }
+            });
+          } else {
+            sendTextMessage(senderID, "i don't know who " + command.who + " is!");
+          }
+          //sendTextMessage(senderID, JSON.stringify(command));
+
+        } else if (command.action == 'send' && command.what == 'invoice') {
+          let doc = Documents.findOne();
+          let settings = Settings.find({"_id": doc.customerID}).fetch();
+          let details = settings[0];
+          sendTextMessage(senderID, "invoice sent to " + details.nickname + " via " + details.delivery);
+        } else if (command.what != null) {
+          if (command.what == 'tire' || command.what == 'oil' || command.what == 'hour') {
+            if (command.action == 'add') {
+              let size = 1;
+              if (command.num) {
+                size = command.num;
+              }
+
+              let doc = Documents.findOne();
+              if (doc) {
+                if (doc.items[command.what]) {
+                  doc.items[command.what].quantity += size;
+                } else {
+                  doc.items[command.what] = {
+                    quantity: size
+                  }
                 }
 
-                let doc = Documents.findOne();
-                if (doc) {
-                  if (doc.items[command.what]) {
-                    doc.items[command.what].quantity += size;
+                upsertDocument.call({
+                  _id: doc._id,
+                  title: doc.title,
+                  body: "adding " + command.what,
+                  customerID: doc.customerID,
+                  items: doc.items
+                }, function(err, result) {
+                  if (err) {
+                    throw new Error(err);
                   } else {
-                    doc.items[command.what] = {
-                      quantity: size
-                    }
+                    let settings = Settings.find({"_id": doc.customerID}).fetch();
+                    let details = settings[0];
+                    let user = Meteor.users.findOne(doc.customerID);
+
+                    sendReceiptMessage(senderID, details, doc, user);
+                  }
+                });
+              } else {
+                sendTextMessage(senderID, "no idea to which invoice this should be added to!");
+              }
+            } else if (command.action == 'remove') {
+              let size = 1;
+              if (command.num) {
+                size = command.num;
+              }
+
+              let doc = Documents.findOne();
+              if (doc) {
+                if (doc.items[command.what]) {
+                  doc.items[command.what].quantity -= size;
+
+                  if (doc.items[command.what].quantity < 0) {
+                    doc.items[command.what].quantity = 0;
                   }
 
                   upsertDocument.call({
                     _id: doc._id,
                     title: doc.title,
-                    body: "adding " + command.what,
+                    body: "removing " + command.what,
                     customerID: doc.customerID,
                     items: doc.items
                   }, function(err, result) {
@@ -526,72 +576,26 @@ function processMessageText(senderID, messageText) {
                       sendReceiptMessage(senderID, details, doc, user);
                     }
                   });
-                } else {
-                  sendTextMessage(senderID, "no idea to which invoice this should be added to!");
-                }
-              } else if (command.action == 'remove') {
-                let size = 1;
-                if (command.num) {
-                  size = command.num;
-                }
-
-                let doc = Documents.findOne();
-                if (doc) {
-                  if (doc.items[command.what]) {
-                    doc.items[command.what].quantity -= size;
-
-                    if (doc.items[command.what].quantity < 0) {
-                      doc.items[command.what].quantity = 0;
-                    }
-
-                    upsertDocument.call({
-                      _id: doc._id,
-                      title: doc.title,
-                      body: "removing " + command.what,
-                      customerID: doc.customerID,
-                      items: doc.items
-                    }, function(err, result) {
-                      if (err) {
-                        throw new Error(err);
-                      } else {
-                        let settings = Settings.find({"_id": doc.customerID}).fetch();
-                        let details = settings[0];
-                        let user = Meteor.users.findOne(doc.customerID);
-
-                        sendReceiptMessage(senderID, details, doc, user);
-                      }
-                    });
-                  }
-                } else {
-                  sendTextMessage(senderID, "no idea to which invoice this should be removed from!");
                 }
               } else {
-                sendTextMessage(senderID, "how do I " + command.action + "?");
+                sendTextMessage(senderID, "no idea to which invoice this should be removed from!");
               }
             } else {
-              sendTextMessage(senderID, "i don't know what the item " + command.what + " is");
+              sendTextMessage(senderID, "how do I " + command.action + "?");
             }
-
           } else {
-            sendTextMessage(senderID, "i don't get you!");
+            sendTextMessage(senderID, "i don't know what the item " + command.what + " is");
           }
-        }
 
-        // Translate a string of text.
-        // translate.translate(reply, 'de', function(err, translation) {
-        //   if (!err) {
-        //     sendTextMessage(senderID, translation);
-        //   } else {
-        //     console.error(err);
-        //     sendTextMessage(senderID, "sorry, I wasn't listeneing... could you please repeat that?! " + err);
-        //   }
-        // });
-      } catch (err) {
-        console.error(err);
-        sendTextMessage(senderID, "something went wrong with " + err.toString());
+        } else {
+          sendTextMessage(senderID, "i don't get you!");
+        }
       }
-    });
-  }
+    } catch (err) {
+      console.error(err);
+      sendTextMessage(senderID, "something went wrong with " + err.toString());
+    }
+  });
 }
 
 function speechRecognize(senderID, url) {
@@ -942,7 +946,7 @@ function sendReceiptMessage(recipientId, details, invoice, user) {
   if (invoice.items) {
     if (invoice.items.hour && invoice.items.hour.quantity > 0) {
       elements.push({
-        title: "Mechanic Mike Hours",
+        title: "Mike The Mechanic",
         //subtitle: "Bridgestones",
         quantity: invoice.items.hour.quantity,
         price: 300.00,
