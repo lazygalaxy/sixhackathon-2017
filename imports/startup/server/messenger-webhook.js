@@ -350,77 +350,66 @@ function receivedMessage(event) {
       } else if (messageAttachments[i].type == 'audio') {
         console.info("processing audio " + messageAttachments[i].payload.url);
         try {
-          const apiKey = '277a9b96ba816b8eaac480b2f1de963f88b7fe54';
-          const formData = {
-            target_format: 'flac',
-            source_file: messageAttachments[i].payload.url
-          };
+          if (messageAttachments[i].payload.url.includes('.flac')) {
+            speechRecognize(senderID, messageAttachments[i].payload.url);
+          } else {
+            const apiKey = '277a9b96ba816b8eaac480b2f1de963f88b7fe54';
+            const formData = {
+              target_format: 'flac',
+              source_file: messageAttachments[i].payload.url
+            };
 
-          request.post({
-            url: 'https://sandbox.zamzar.com/v1/jobs/',
-            formData: formData
-          }, function(err, response, body) {
-            if (err) {
-              console.error('Unable to start conversion job', err);
-            } else {
-              console.log('SUCCESS! Conversion job started:', JSON.parse(body));
-              const jobID = JSON.parse(body).id;
+            request.post({
+              url: 'https://sandbox.zamzar.com/v1/jobs/',
+              formData: formData
+            }, function(err, response, body) {
+              if (err) {
+                console.error('Unable to start conversion job', err);
+              } else {
+                console.log('SUCCESS! Conversion job started:', JSON.parse(body));
+                const jobID = JSON.parse(body).id;
 
-              var start = new Date().getTime();
-              for (var i = 0; i < 1e7; i++) {
-                if ((new Date().getTime() - start) > 4000) {
-                  break;
+                var start = new Date().getTime();
+                for (var i = 0; i < 1e7; i++) {
+                  if ((new Date().getTime() - start) > 2000) {
+                    break;
+                  }
                 }
-              }
 
-              request.get('https://api.zamzar.com/v1/jobs/' + jobID, function(err, response, body) {
-                if (err) {
-                  console.error('Unable to get job', err);
-                } else {
-                  console.log('SUCCESS! Got job:', JSON.parse(body));
-                  const fileID = JSON.parse(body).target_files[0].id;
-                  const localFilename = '/tmp/audio.flac';
-                  request.get({
-                    url: 'https://api.zamzar.com/v1/files/' + fileID + '/content',
-                    followRedirect: false
-                  }, function(err, response, body) {
-                    if (err) {
-                      console.error('Unable to download file:', err);
-                    } else {
-                      // We are being redirected
-                      if (response.headers.location) {
-                        // Issue a second request to download the file
-                        var fileRequest = request(response.headers.location);
-                        fileRequest.on('response', function(res) {
-                          res.pipe(fs.createWriteStream(localFilename));
-                        });
-                        fileRequest.on('end', function() {
-                          console.log('File download complete');
-
-                          speech.recognize('/tmp/audio.flac', {
-                            encoding: 'FLAC',
-                            sampleRate: 8000
-                          }).then(function(data) {
-                            try {
-                              console.info("processing data " + JSON.stringify(data));
-                              var transcript = data[0];
-                              sendTextMessage(senderID, "you said:  " + transcript);
-                              processMessageText(senderID, transcript);
-
-                            } catch (err) {
-                              console.error(err);
-                              sendTextMessage(senderID, "something went wrong with " + err.toString());
-                            }
+                request.get('https://api.zamzar.com/v1/jobs/' + jobID, function(err, response, body) {
+                  if (err) {
+                    console.error('Unable to get job', err);
+                  } else {
+                    console.log('SUCCESS! Got job:', JSON.parse(body));
+                    const fileID = JSON.parse(body).target_files[0].id;
+                    const localFilename = '/tmp/audio.flac';
+                    request.get({
+                      url: 'https://api.zamzar.com/v1/files/' + fileID + '/content',
+                      followRedirect: false
+                    }, function(err, response, body) {
+                      if (err) {
+                        console.error('Unable to download file:', err);
+                      } else {
+                        // We are being redirected
+                        if (response.headers.location) {
+                          // Issue a second request to download the file
+                          var fileRequest = request(response.headers.location);
+                          fileRequest.on('response', function(res) {
+                            res.pipe(fs.createWriteStream(localFilename));
                           });
-                        });
+                          fileRequest.on('end', function() {
+                            console.log('File download complete');
+                            speechRecognize(senderID, '/tmp/audio.flac');
+                          });
+                        }
                       }
-                    }
-                  }).auth(apiKey, '', true).pipe(fs.createWriteStream(localFilename));
+                    }).auth(apiKey, '', true).pipe(fs.createWriteStream(localFilename));
 
-                }
-              }).auth(apiKey, '', true);
-            }
-          }).auth(apiKey, '', true);
+                  }
+                }).auth(apiKey, '', true);
+              }
+            }).auth(apiKey, '', true);
+          }
         } catch (err) {
           console.error(err);
           sendTextMessage(senderID, "something went wrong with " + err.toString());
@@ -439,117 +428,91 @@ function receivedMessage(event) {
   }
 }
 
+const greetings = ['hello', 'hi', 'whazup', 'ciao'];
 function processMessageText(senderID, messageText) {
-  // // Create a document if you plan to run multiple detections.
-  var document = language.document(messageText.toLowerCase());
-  // Parse the syntax of the document.
-  document.annotate().then(function(data) {
-    try {
-      var annotations = data[0];
-      console.info(JSON.stringify(annotations));
-      let command = chatbot(annotations);
-      if (typeof command === 'string') {
-        sendTextMessage(senderID, command);
-      } else {
-        //if we are creating an invoice for someone
-        if (command.action == 'create' && command.what == 'invoice' && command.who != null) {
-          //find the info of the person we are creating the invoice for
-          let settings = Settings.find({"nickname": command.who}).fetch();
-          if (settings.length > 0) {
-            //console.info(JSON.stringify(settings[0]));
-            let details = settings[0];
+  if (greetings.indexOf(messageText.toLowerCase()) > -1) {
+    sendTextMessage(senderID, 'whazuuuuuuuuup?!');
+  } else {
 
-            let upsert = {
-              title: 'invoice for ' + details.nickname,
-              body: 'contains nothing',
-              customerID: details._id,
-              date: Date.now(),
-              items: {
-                oil: {
-                  quantity: 0
+    // // Create a document if you plan to run multiple detections.
+    var document = language.document(messageText.toLowerCase());
+
+    // Parse the syntax of the document.
+    document.annotate().then(function(data) {
+      try {
+        var annotations = data[0];
+        console.info(JSON.stringify(annotations));
+        let command = chatbot(annotations);
+        if (typeof command === 'string') {
+          sendTextMessage(senderID, command);
+        } else {
+          //if we are creating an invoice for someone
+          if (command.action == 'create' && command.what == 'invoice' && command.who != null) {
+            //find the info of the person we are creating the invoice for
+            let settings = Settings.find({"nickname": command.who}).fetch();
+            if (settings.length > 0) {
+              //console.info(JSON.stringify(settings[0]));
+              let details = settings[0];
+
+              let upsert = {
+                title: 'invoice for ' + details.nickname,
+                body: 'contains nothing',
+                customerID: details._id,
+                date: Date.now(),
+                items: {
+                  oil: {
+                    quantity: 0
+                  },
+                  tire: {
+                    quantity: 0
+                  },
+                  hour: {
+                    quantity: 1
+                  }
                 },
-                tire: {
-                  quantity: 0
-                }
-              },
-              attachment: {}
-            };
-            upsertDocument.call(upsert, function(err, result) {
-              if (err) {
-                throw new Error(err);
-              } else {
-                let user = Meteor.users.findOne(details._id);
-                let doc = Documents.findOne();
-                sendReceiptMessage(senderID, details, doc, user);
-              }
-            });
-          } else {
-            sendTextMessage(senderID, "i don't know who " + command.who + " is!");
-          }
-          //sendTextMessage(senderID, JSON.stringify(command));
-
-        } else if (command.action == 'send' && command.what == 'invoice') {
-          let doc = Documents.findOne();
-          let settings = Settings.find({"_id": doc.customerID}).fetch();
-          let details = settings[0];
-          sendTextMessage(senderID, "invoice sent to " + details.nickname + " via " + details.delivery);
-        } else if (command.what != null) {
-          if (command.what == 'tire' || command.what == 'oil') {
-            if (command.action == 'add') {
-              let size = 1;
-              if (command.num) {
-                size = command.num;
-              }
-
-              let doc = Documents.findOne();
-              if (doc) {
-                if (doc.items[command.what]) {
-                  doc.items[command.what].quantity += size;
+                attachment: {}
+              };
+              upsertDocument.call(upsert, function(err, result) {
+                if (err) {
+                  throw new Error(err);
                 } else {
-                  doc.items[command.what] = {
-                    quantity: size
-                  }
+                  let user = Meteor.users.findOne(details._id);
+                  let doc = Documents.findOne();
+                  sendReceiptMessage(senderID, details, doc, user);
+                }
+              });
+            } else {
+              sendTextMessage(senderID, "i don't know who " + command.who + " is!");
+            }
+            //sendTextMessage(senderID, JSON.stringify(command));
+
+          } else if (command.action == 'send' && command.what == 'invoice') {
+            let doc = Documents.findOne();
+            let settings = Settings.find({"_id": doc.customerID}).fetch();
+            let details = settings[0];
+            sendTextMessage(senderID, "invoice sent to " + details.nickname + " via " + details.delivery);
+          } else if (command.what != null) {
+            if (command.what == 'tire' || command.what == 'oil' || command.what == 'hour') {
+              if (command.action == 'add') {
+                let size = 1;
+                if (command.num) {
+                  size = command.num;
                 }
 
-                upsertDocument.call({
-                  _id: doc._id,
-                  title: doc.title,
-                  body: "adding " + command.what,
-                  customerID: doc.customerID,
-                  items: doc.items
-                }, function(err, result) {
-                  if (err) {
-                    throw new Error(err);
+                let doc = Documents.findOne();
+                if (doc) {
+                  if (doc.items[command.what]) {
+                    doc.items[command.what].quantity += size;
                   } else {
-                    let settings = Settings.find({"_id": doc.customerID}).fetch();
-                    let details = settings[0];
-                    let user = Meteor.users.findOne(doc.customerID);
-
-                    sendReceiptMessage(senderID, details, doc, user);
-                  }
-                });
-              } else {
-                sendTextMessage(senderID, "no idea to which invoice this should be added to!");
-              }
-            } else if (command.action == 'remove') {
-              let size = 1;
-              if (command.num) {
-                size = command.num;
-              }
-
-              let doc = Documents.findOne();
-              if (doc) {
-                if (doc.items[command.what]) {
-                  doc.items[command.what].quantity -= size;
-
-                  if (doc.items[command.what].quantity < 0) {
-                    doc.items[command.what].quantity = 0;
+                    doc.items[command.what] = {
+                      quantity: size
+                    }
                   }
 
                   upsertDocument.call({
                     _id: doc._id,
                     title: doc.title,
-                    body: "removing " + command.what,
+                    body: "adding " + command.what,
                     customerID: doc.customerID,
                     items: doc.items
                   }, function(err, result) {
@@ -563,31 +526,86 @@ function processMessageText(senderID, messageText) {
                       sendReceiptMessage(senderID, details, doc, user);
                     }
                   });
+                } else {
+                  sendTextMessage(senderID, "no idea to which invoice this should be added to!");
+                }
+              } else if (command.action == 'remove') {
+                let size = 1;
+                if (command.num) {
+                  size = command.num;
+                }
+
+                let doc = Documents.findOne();
+                if (doc) {
+                  if (doc.items[command.what]) {
+                    doc.items[command.what].quantity -= size;
+
+                    if (doc.items[command.what].quantity < 0) {
+                      doc.items[command.what].quantity = 0;
+                    }
+
+                    upsertDocument.call({
+                      _id: doc._id,
+                      title: doc.title,
+                      body: "removing " + command.what,
+                      customerID: doc.customerID,
+                      items: doc.items
+                    }, function(err, result) {
+                      if (err) {
+                        throw new Error(err);
+                      } else {
+                        let settings = Settings.find({"_id": doc.customerID}).fetch();
+                        let details = settings[0];
+                        let user = Meteor.users.findOne(doc.customerID);
+
+                        sendReceiptMessage(senderID, details, doc, user);
+                      }
+                    });
+                  }
+                } else {
+                  sendTextMessage(senderID, "no idea to which invoice this should be removed from!");
                 }
               } else {
-                sendTextMessage(senderID, "no idea to which invoice this should be removed from!");
+                sendTextMessage(senderID, "how do I " + command.action + "?");
               }
             } else {
-              sendTextMessage(senderID, "how do I " + command.action + "?");
+              sendTextMessage(senderID, "i don't know what the item " + command.what + " is");
             }
+
           } else {
-            sendTextMessage(senderID, "i don't know what the item " + command.what + " is");
+            sendTextMessage(senderID, "i don't get you!");
           }
-
-        } else {
-          sendTextMessage(senderID, "i don't get you!");
         }
-      }
 
-      // Translate a string of text.
-      // translate.translate(reply, 'de', function(err, translation) {
-      //   if (!err) {
-      //     sendTextMessage(senderID, translation);
-      //   } else {
-      //     console.error(err);
-      //     sendTextMessage(senderID, "sorry, I wasn't listeneing... could you please repeat that?! " + err);
-      //   }
-      // });
+        // Translate a string of text.
+        // translate.translate(reply, 'de', function(err, translation) {
+        //   if (!err) {
+        //     sendTextMessage(senderID, translation);
+        //   } else {
+        //     console.error(err);
+        //     sendTextMessage(senderID, "sorry, I wasn't listeneing... could you please repeat that?! " + err);
+        //   }
+        // });
+      } catch (err) {
+        console.error(err);
+        sendTextMessage(senderID, "something went wrong with " + err.toString());
+      }
+    });
+  }
+}
+
+function speechRecognize(senderID, url) {
+  ///tmp/audio.flac
+  speech.recognize(url, {
+    encoding: 'FLAC',
+    sampleRate: 8000
+  }).then(function(data) {
+    try {
+      console.info("processing data " + JSON.stringify(data));
+      var transcript = data[0];
+      sendTextMessage(senderID, "you said:  " + transcript);
+      processMessageText(senderID, transcript);
+
     } catch (err) {
       console.error(err);
       sendTextMessage(senderID, "something went wrong with " + err.toString());
@@ -922,6 +940,17 @@ function sendReceiptMessage(recipientId, details, invoice, user) {
   let subtotal = 0;
 
   if (invoice.items) {
+    if (invoice.items.hour && invoice.items.hour.quantity > 0) {
+      elements.push({
+        title: "Mechanic Mike Hours",
+        //subtitle: "Bridgestones",
+        quantity: invoice.items.hour.quantity,
+        price: 300.00,
+        currency: "CHF",
+        image_url: SERVER_URL + "/mike.png"
+      })
+      subtotal += invoice.items.hour.quantity * 300.00;
+    }
     if (invoice.items.oil && invoice.items.oil.quantity > 0) {
       elements.push({
         title: "Total Classic Oil",
@@ -946,27 +975,17 @@ function sendReceiptMessage(recipientId, details, invoice, user) {
     }
   }
 
-  elements.push({
-    title: "Mechanic Mike",
-    //subtitle: "Bridgestones",
-    quantity: 1,
-    price: 50.00,
-    currency: "CHF",
-    image_url: SERVER_URL + "/mike.png"
-  });
-  subtotal += 1 * 50.00;
-
-  if (details.delivery == 'post') {
-    elements.push({
-      title: "Invoice Delivery",
-      //subtitle: "Bridgestones",
-      quantity: 1,
-      price: 2.50,
-      currency: "CHF",
-      image_url: SERVER_URL + "/post.png"
-    });
-    subtotal += 1 * 2.50;
-  }
+  // if (details.delivery == 'post') {
+  //   elements.push({
+  //     title: "Invoice Delivery",
+  //     //subtitle: "Bridgestones",
+  //     quantity: 1,
+  //     price: 2.50,
+  //     currency: "CHF",
+  //     image_url: SERVER_URL + "/post.png"
+  //   });
+  //   subtotal += 1 * 2.50;
+  // }
 
   let messageData = {
     recipient: {

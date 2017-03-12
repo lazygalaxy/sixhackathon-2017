@@ -47,6 +47,11 @@ Documents.schema = new SimpleSchema({
     label: 'The wheel items of the document',
     optional: true
   },
+  "items.hour.quantity": {
+    type: Number,
+    label: 'The hours items of the document',
+    optional: true
+  },
   "attachment.type": {
     type: String,
     label: 'The type of the attachment.',

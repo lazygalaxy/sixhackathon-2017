@@ -34,6 +34,10 @@ export const upsertDocument = new ValidatedMethod({
       type: Number,
       optional: true
     },
+    "items.hour.quantity": {
+      type: Number,
+      optional: true
+    },
     "attachment.type": {
       type: String,
       label: 'The type of the attachment.',

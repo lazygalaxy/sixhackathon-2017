@@ -20,6 +20,7 @@ let tire = [
   'rubbers'
 ];
 let oil = ['oil', 'oils']
+let hour = ['hour', 'hours']
 
 export default function chatbot(annotations) {
   let action = null;
@@ -40,6 +41,8 @@ export default function chatbot(annotations) {
           what = 'tire';
         } else if (oil.indexOf(token.text) > -1) {
           what = 'oil';
+        } else if (hour.indexOf(token.text) > -1) {
+          what = 'hour';
         } else {
           what = token.text;
         }
