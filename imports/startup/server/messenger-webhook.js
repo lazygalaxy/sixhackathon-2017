@@ -434,7 +434,7 @@ function processMessageText(senderID, messageText) {
   messageText = messageText.toLowerCase();
   if (greetings.indexOf(messageText) > -1) {
     sendTextMessage(senderID, 'whazuuuuuuuuup?!');
-  } else if (messageText.startsWith('add') || messageText.startsWith('remove') || messageText.startsWith('please') || messageText.startsWith('could')) {
+  } else if (messageText.startsWith('add') || messageText.startsWith('remove') || messageText.startsWith('please') || messageText.startsWith('could') || messageText.startsWith('create')) {
     processMessageTextAnnotation(senderID, messageText);
   } else {
     console.info('translating!');
