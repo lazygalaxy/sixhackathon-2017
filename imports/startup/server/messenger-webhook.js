@@ -2,9 +2,13 @@ import bodyParser from 'body-parser';
 import request from 'request';
 import fs from 'fs';
 import crypto from 'crypto';
-import {Picker} from 'meteor/meteorhacks:picker';
+import {
+  Picker
+} from 'meteor/meteorhacks:picker';
 import chatbot from '../../api/chatbot/chatbot.js';
-import {upsertDocument} from '../../api/documents/methods.js';
+import {
+  upsertDocument
+} from '../../api/documents/methods.js';
 import Settings from '../../api/settings/settings.js';
 import Documents from '../../api/documents/documents.js';
 
@@ -28,12 +32,22 @@ if (!(APP_SECRET && VALIDATION_TOKEN && PAGE_ACCESS_TOKEN && SERVER_URL && GOOGL
   console.error("Missing chatbot config values");
 }
 
-let translate = require('@google-cloud/translate')({credentials: GOOGLE_CREDENTIALS});
-let language = require('@google-cloud/language')({credentials: GOOGLE_CREDENTIALS});
-let vision = require('@google-cloud/vision')({credentials: GOOGLE_CREDENTIALS});
-let speech = require('@google-cloud/speech')({credentials: GOOGLE_CREDENTIALS});
+let translate = require('@google-cloud/translate')({
+  credentials: GOOGLE_CREDENTIALS
+});
+let language = require('@google-cloud/language')({
+  credentials: GOOGLE_CREDENTIALS
+});
+let vision = require('@google-cloud/vision')({
+  credentials: GOOGLE_CREDENTIALS
+});
+let speech = require('@google-cloud/speech')({
+  credentials: GOOGLE_CREDENTIALS
+});
 
-Picker.middleware(bodyParser.json({verify: verifyRequestSignature}));
+Picker.middleware(bodyParser.json({
+  verify: verifyRequestSignature
+}));
 
 var getRoutes = Picker.filter(function(req, res) {
   return req.method == "GET";
@@ -198,7 +212,7 @@ function receivedAuthentication(event) {
 
   console.log("Received authentication for user %d and page %d with pass " +
     "through param '%s' at %d",
-  senderID, recipientID, passThroughParam, timeOfAuth);
+    senderID, recipientID, passThroughParam, timeOfAuth);
 
   // When an authentication is received, we'll send a message back to the sender
   // to let them know it was successful.
@@ -353,8 +367,8 @@ function receivedMessage(event) {
           if (messageAttachments[i].payload.url.includes('.audio')) {
             speechRecognize(senderID, messageAttachments[i].payload.url);
           } else {
-            console.info("going to zamzar!!!!");
-            const apiKey = '277a9b96ba816b8eaac480b2f1de963f88b7fe54';
+            console.info("going to zamzar with " + messageAttachments[i].payload.url);
+            const apiKey = Meteor.settings.ZAMZAR_API_KEY;
             const formData = {
               target_format: 'flac',
               source_file: messageAttachments[i].payload.url
@@ -370,44 +384,7 @@ function receivedMessage(event) {
                 console.log('SUCCESS! Conversion job started:', JSON.parse(body));
                 const jobID = JSON.parse(body).id;
 
-                var start = new Date().getTime();
-                for (var i = 0; i < 1e7; i++) {
-                  if ((new Date().getTime() - start) > 5000) {
-                    break;
-                  }
-                }
-
-                request.get('https://api.zamzar.com/v1/jobs/' + jobID, function(err, response, body) {
-                  if (err) {
-                    console.error('Unable to get job', err);
-                  } else {
-                    console.log('SUCCESS! Got job:', JSON.parse(body));
-                    const fileID = JSON.parse(body).target_files[0].id;
-                    const localFilename = '/tmp/audio.flac';
-                    request.get({
-                      url: 'https://api.zamzar.com/v1/files/' + fileID + '/content',
-                      followRedirect: false
-                    }, function(err, response, body) {
-                      if (err) {
-                        console.error('Unable to download file:', err);
-                      } else {
-                        // We are being redirected
-                        if (response.headers.location) {
-                          // Issue a second request to download the file
-                          var fileRequest = request(response.headers.location);
-                          fileRequest.on('response', function(res) {
-                            res.pipe(fs.createWriteStream(localFilename));
-                          });
-                          fileRequest.on('end', function() {
-                            console.log('File download complete');
-                            speechRecognize(senderID, '/tmp/audio.flac');
-                          });
-                        }
-                      }
-                    }).auth(apiKey, '', true).pipe(fs.createWriteStream(localFilename));
-
-                  }
-                }).auth(apiKey, '', true);
+                processRecording(jobID, apiKey, senderID);
               }
             }).auth(apiKey, '', true);
           }
@@ -429,7 +406,56 @@ function receivedMessage(event) {
   }
 }
 
+function processRecording(jobID, apiKey, senderID) {
+  const theJobID = jobID;
+  const theApiKey = apiKey;
+  const theSenderID = senderID;
+
+  request.get('https://api.zamzar.com/v1/jobs/' + jobID, function(err, response, body) {
+    if (err) {
+      console.error('Unable to get job', err);
+    } else {
+      console.log('SUCCESS! user:' + theSenderID);
+      console.log('SUCCESS! Got job:', JSON.parse(body));
+      if (!JSON.parse(body).target_files[0]) {
+        var start = new Date().getTime();
+        for (var i = 0; i < 1e7; i++) {
+          if ((new Date().getTime() - start) > 1000) {
+            break;
+          }
+        }
+        processRecording(theJobID, theApiKey, theSenderID);
+      } else {
+        const fileID = JSON.parse(body).target_files[0].id;
+        const localFilename = '/tmp/audio.flac';
+        request.get({
+          url: 'https://api.zamzar.com/v1/files/' + fileID + '/content',
+          followRedirect: false
+        }, function(err, response, body) {
+          if (err) {
+            console.error('Unable to download file:', err);
+          } else {
+            // We are being redirected
+            if (response.headers.location) {
+              // Issue a second request to download the file
+              var fileRequest = request(response.headers.location);
+              fileRequest.on('response', function(res) {
+                res.pipe(fs.createWriteStream(localFilename));
+              });
+              fileRequest.on('end', function() {
+                console.log('File download complete for ' + theSenderID);
+                speechRecognize(theSenderID, '/tmp/audio.flac');
+              });
+            }
+          }
+        }).auth(apiKey, '', true).pipe(fs.createWriteStream(localFilename));
+      }
+    }
+  }).auth(apiKey, '', true);
+}
+
 const greetings = ['hello', 'hi', 'whazup', 'ciao'];
+
 function processMessageText(senderID, messageText) {
   messageText = messageText.toLowerCase();
   if (greetings.indexOf(messageText) > -1) {
@@ -465,7 +491,9 @@ function processMessageTextAnnotation(senderID, messageText) {
         //if we are creating an invoice for someone
         if (command.action == 'create' && command.what == 'invoice' && command.who != null) {
           //find the info of the person we are creating the invoice for
-          let settings = Settings.find({"nickname": command.who}).fetch();
+          let settings = Settings.find({
+            "nickname": command.who
+          }).fetch();
           if (settings.length > 0) {
             //console.info(JSON.stringify(settings[0]));
             let details = settings[0];
@@ -504,7 +532,9 @@ function processMessageTextAnnotation(senderID, messageText) {
 
         } else if (command.action == 'send' && command.what == 'invoice') {
           let doc = Documents.findOne();
-          let settings = Settings.find({"_id": doc.customerID}).fetch();
+          let settings = Settings.find({
+            "_id": doc.customerID
+          }).fetch();
           let details = settings[0];
           sendTextMessage(senderID, "invoice sent to " + details.nickname + " via " + details.delivery);
         } else if (command.what != null) {
@@ -535,7 +565,9 @@ function processMessageTextAnnotation(senderID, messageText) {
                   if (err) {
                     throw new Error(err);
                   } else {
-                    let settings = Settings.find({"_id": doc.customerID}).fetch();
+                    let settings = Settings.find({
+                      "_id": doc.customerID
+                    }).fetch();
                     let details = settings[0];
                     let user = Meteor.users.findOne(doc.customerID);
 
@@ -570,7 +602,9 @@ function processMessageTextAnnotation(senderID, messageText) {
                     if (err) {
                       throw new Error(err);
                     } else {
-                      let settings = Settings.find({"_id": doc.customerID}).fetch();
+                      let settings = Settings.find({
+                        "_id": doc.customerID
+                      }).fetch();
                       let details = settings[0];
                       let user = Meteor.users.findOne(doc.customerID);
 
@@ -594,13 +628,16 @@ function processMessageTextAnnotation(senderID, messageText) {
       }
     } catch (err) {
       console.error(err);
-      sendTextMessage(senderID, "something went wrong with " + err.toString());
+      sendTextMessage(senderID, "sorry, I wasn't listeneing... could you please repeat that?! " + err);
     }
+  }).catch((err) => {
+    console.error('ERROR:', err);
+    sendTextMessage(senderID, "sorry, I wasn't listeneing... could you please repeat that?! " + err);
   });
 }
 
 function speechRecognize(senderID, url) {
-  ///tmp/audio.flac
+  console.info("recognizing url " + url);
   speech.recognize(url, {
     encoding: 'FLAC',
     sampleRate: 8000
@@ -615,6 +652,9 @@ function speechRecognize(senderID, url) {
       console.error(err);
       sendTextMessage(senderID, "something went wrong with " + err.toString());
     }
+  }).catch((err) => {
+    console.error('ERROR:', err);
+    sendTextMessage(senderID, "something went wrong with " + err.toString());
   });
 }
 
@@ -660,7 +700,7 @@ function receivedPostback(event) {
 
   console.log("Received postback for user %d and page %d with payload '%s' " +
     "at %d",
-  senderID, recipientID, payload, timeOfPostback);
+    senderID, recipientID, payload, timeOfPostback);
 
   // When a postback is called, we'll send a message back to the sender to
   // let them know it was successful
@@ -684,7 +724,7 @@ function receivedMessageRead(event) {
 
   console.log("Received message read event for watermark %d and sequence " +
     "number %d",
-  watermark, sequenceNumber);
+    watermark, sequenceNumber);
 }
 
 /*
@@ -704,7 +744,7 @@ function receivedAccountLink(event) {
 
   console.log("Received account link event with for user %d with status %s " +
     "and auth code %s ",
-  senderID, status, authCode);
+    senderID, status, authCode);
 }
 
 /*
@@ -850,21 +890,19 @@ function sendButtonMessage(recipientId) {
         payload: {
           template_type: "button",
           text: "This is test text",
-          buttons: [
-            {
-              type: "web_url",
-              url: "https://www.oculus.com/en-us/rift/",
-              title: "Open Web URL"
-            }, {
-              type: "postback",
-              title: "Trigger Postback",
-              payload: "DEVELOPER_DEFINED_PAYLOAD"
-            }, {
-              type: "phone_number",
-              title: "Call Phone Number",
-              payload: "+16505551234"
-            }
-          ]
+          buttons: [{
+            type: "web_url",
+            url: "https://www.oculus.com/en-us/rift/",
+            title: "Open Web URL"
+          }, {
+            type: "postback",
+            title: "Trigger Postback",
+            payload: "DEVELOPER_DEFINED_PAYLOAD"
+          }, {
+            type: "phone_number",
+            title: "Call Phone Number",
+            payload: "+16505551234"
+          }]
         }
       }
     }
@@ -887,41 +925,35 @@ function sendGenericMessage(recipientId) {
         type: "template",
         payload: {
           template_type: "generic",
-          elements: [
-            {
-              title: "rift",
-              subtitle: "Next-generation virtual reality",
-              item_url: "https://www.oculus.com/en-us/rift/",
-              image_url: SERVER_URL + "/assets/rift.png",
-              buttons: [
-                {
-                  type: "web_url",
-                  url: "https://www.oculus.com/en-us/rift/",
-                  title: "Open Web URL"
-                }, {
-                  type: "postback",
-                  title: "Call Postback",
-                  payload: "Payload for first bubble"
-                }
-              ]
+          elements: [{
+            title: "rift",
+            subtitle: "Next-generation virtual reality",
+            item_url: "https://www.oculus.com/en-us/rift/",
+            image_url: SERVER_URL + "/assets/rift.png",
+            buttons: [{
+              type: "web_url",
+              url: "https://www.oculus.com/en-us/rift/",
+              title: "Open Web URL"
             }, {
-              title: "touch",
-              subtitle: "Your Hands, Now in VR",
-              item_url: "https://www.oculus.com/en-us/touch/",
-              image_url: SERVER_URL + "/assets/touch.png",
-              buttons: [
-                {
-                  type: "web_url",
-                  url: "https://www.oculus.com/en-us/touch/",
-                  title: "Open Web URL"
-                }, {
-                  type: "postback",
-                  title: "Call Postback",
-                  payload: "Payload for second bubble"
-                }
-              ]
-            }
-          ]
+              type: "postback",
+              title: "Call Postback",
+              payload: "Payload for first bubble"
+            }]
+          }, {
+            title: "touch",
+            subtitle: "Your Hands, Now in VR",
+            item_url: "https://www.oculus.com/en-us/touch/",
+            image_url: SERVER_URL + "/assets/touch.png",
+            buttons: [{
+              type: "web_url",
+              url: "https://www.oculus.com/en-us/touch/",
+              title: "Open Web URL"
+            }, {
+              type: "postback",
+              title: "Call Postback",
+              payload: "Payload for second bubble"
+            }]
+          }]
         }
       }
     }
@@ -1049,21 +1081,19 @@ function sendQuickReply(recipientId) {
     },
     message: {
       text: "What's your favorite movie genre?",
-      quick_replies: [
-        {
-          "content_type": "text",
-          "title": "Action",
-          "payload": "DEVELOPER_DEFINED_PAYLOAD_FOR_PICKING_ACTION"
-        }, {
-          "content_type": "text",
-          "title": "Comedy",
-          "payload": "DEVELOPER_DEFINED_PAYLOAD_FOR_PICKING_COMEDY"
-        }, {
-          "content_type": "text",
-          "title": "Drama",
-          "payload": "DEVELOPER_DEFINED_PAYLOAD_FOR_PICKING_DRAMA"
-        }
-      ]
+      quick_replies: [{
+        "content_type": "text",
+        "title": "Action",
+        "payload": "DEVELOPER_DEFINED_PAYLOAD_FOR_PICKING_ACTION"
+      }, {
+        "content_type": "text",
+        "title": "Comedy",
+        "payload": "DEVELOPER_DEFINED_PAYLOAD_FOR_PICKING_COMEDY"
+      }, {
+        "content_type": "text",
+        "title": "Drama",
+        "payload": "DEVELOPER_DEFINED_PAYLOAD_FOR_PICKING_DRAMA"
+      }]
     }
   };
 
@@ -1136,12 +1166,10 @@ function sendAccountLinking(recipientId) {
         payload: {
           template_type: "button",
           text: "Welcome. Link your account.",
-          buttons: [
-            {
-              type: "account_link",
-              url: SERVER_URL + "/authorize"
-            }
-          ]
+          buttons: [{
+            type: "account_link",
+            url: SERVER_URL + "/authorize"
+          }]
         }
       }
     }
